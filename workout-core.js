@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - WORKOUT CORE LOGIC
- * Version: 13.1.2 (Phase 3: Visual Summary Screen & Separation of Concerns)
+ * Version: 14.0.0 (Stage 2: Dashboard & Tab Bar Navigation)
  * Includes: Global State, Init, Navigation, Workout Engine, Timer, Intra-Workout Persistence.
  */
 
@@ -64,8 +64,62 @@ let wakeLock = null;
 window.onload = () => {
     StorageManager.initDB();
     if(typeof renderWorkoutMenu === 'function') renderWorkoutMenu(); 
+    renderDashboardStats();
     checkRecovery();
 };
+
+function renderDashboardStats() {
+    const archive = StorageManager.getArchive();
+    const dashDays = document.getElementById('dash-stat-1');
+    const dashVol = document.getElementById('dash-stat-2');
+    const dashDur = document.getElementById('dash-stat-3');
+    const streakPill = document.getElementById('dashboard-streak');
+
+    if (!archive || archive.length === 0) {
+        if(dashDays) dashDays.innerText = "-";
+        if(dashVol) dashVol.innerText = "-";
+        if(dashDur) dashDur.innerText = "-";
+        if(streakPill) streakPill.innerText = "🔥 0 שבועות ברצף";
+        return;
+    }
+
+    const lastWorkout = archive[0];
+
+    // 1. Days since last workout
+    const lastDate = new Date(lastWorkout.timestamp);
+    const now = new Date();
+    const diffTime = Math.abs(now - lastDate);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if(dashDays) dashDays.innerText = diffDays;
+
+    // 2. Volume of last workout
+    let totalVolume = 0;
+    if (lastWorkout.details) {
+        for (let ex in lastWorkout.details) {
+            totalVolume += lastWorkout.details[ex].vol || 0;
+        }
+    }
+    if(dashVol) dashVol.innerText = totalVolume.toLocaleString();
+
+    // 3. Duration
+    if(dashDur) dashDur.innerText = (lastWorkout.duration || 0) + "m";
+
+    // 4. Streak (Active Weeks)
+    if(streakPill) {
+        let activeWeeks = new Set();
+        archive.forEach(wo => {
+            const d = new Date(wo.timestamp);
+            d.setHours(0,0,0,0);
+            d.setDate(d.getDate() - d.getDay()); 
+            activeWeeks.add(d.getTime());
+        });
+        
+        let streakCount = activeWeeks.size;
+        if (diffDays > 14) streakCount = 0; 
+        streakPill.innerText = `🔥 ${streakCount} שבועות ברצף`;
+    }
+}
 
 function checkRecovery() {
     if (StorageManager.hasActiveSession()) {
@@ -96,7 +150,22 @@ function restoreSession() {
         
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById(lastScreen).classList.add('active');
-        document.getElementById('global-back').style.visibility = (lastScreen === 'ui-week') ? 'hidden' : 'visible';
+        
+        const isRoot = ['ui-week', 'ui-analytics', 'ui-archive'].includes(lastScreen);
+        document.getElementById('global-back').style.visibility = isRoot ? 'hidden' : 'visible';
+        
+        // Restore Tab Bar state
+        const tabBar = document.getElementById('main-tab-bar');
+        if (tabBar) {
+            if (isRoot) {
+                tabBar.classList.remove('hidden');
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                const activeBtn = document.getElementById('tb-' + lastScreen);
+                if(activeBtn) activeBtn.classList.add('active');
+            } else {
+                tabBar.classList.add('hidden');
+            }
+        }
         
         switch (lastScreen) {
             case 'ui-main':
@@ -134,6 +203,8 @@ function restoreSession() {
             case 'ui-exercise-db': if(typeof renderExerciseDatabase === 'function') renderExerciseDatabase(); break;
             case 'ui-archive': if(typeof openArchive === 'function') openArchive(); break;
         }
+        
+        if(lastScreen === 'ui-week') renderDashboardStats();
         haptic('success');
     } else {
         discardSession();
@@ -192,7 +263,23 @@ function navigate(id, clearStack = false) {
         if (state.historyStack[state.historyStack.length - 1] !== id) state.historyStack.push(id);
     }
     
-    document.getElementById('global-back').style.visibility = (id === 'ui-week') ? 'hidden' : 'visible';
+    // Tab Bar Visibility & Active State Logic
+    const isRoot = ['ui-week', 'ui-analytics', 'ui-archive'].includes(id);
+    document.getElementById('global-back').style.visibility = isRoot ? 'hidden' : 'visible';
+
+    const tabBar = document.getElementById('main-tab-bar');
+    if (tabBar) {
+        if (isRoot) {
+            tabBar.classList.remove('hidden');
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.getElementById('tb-' + id);
+            if(activeBtn) activeBtn.classList.add('active');
+            
+            if(id === 'ui-week') renderDashboardStats();
+        } else {
+            tabBar.classList.add('hidden');
+        }
+    }
 }
 
 function handleBackClick() {
@@ -267,9 +354,54 @@ function handleBackClick() {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(prevScreen).classList.add('active');
     
-    document.getElementById('global-back').style.visibility = (prevScreen === 'ui-week') ? 'hidden' : 'visible';
+    const isRoot =['ui-week', 'ui-analytics', 'ui-archive'].includes(prevScreen);
+    document.getElementById('global-back').style.visibility = isRoot ? 'hidden' : 'visible';
+
+    const tabBar = document.getElementById('main-tab-bar');
+    if (tabBar) {
+        if (isRoot) {
+            tabBar.classList.remove('hidden');
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.getElementById('tb-' + prevScreen);
+            if(activeBtn) activeBtn.classList.add('active');
+            
+            if(prevScreen === 'ui-week') renderDashboardStats();
+        } else {
+            tabBar.classList.add('hidden');
+        }
+    }
 }
 
+// Visual UI Selection for Week Cards (No Navigation)
+function selectWeekUI(w, el, color) { 
+    state.week = w; 
+    
+    document.querySelectorAll('.week-card').forEach(c => {
+        c.classList.remove('sel');
+        c.style.borderColor = '';
+        c.style.backgroundColor = '';
+    });
+    
+    el.classList.add('sel');
+    if (color) {
+        el.style.borderColor = color;
+        el.style.backgroundColor = color + '1A'; // 10% opacity Hex Hack
+    }
+    
+    document.getElementById('current-week-display').innerText = (w === 'deload') ? 'דילואוד' : w;
+    if(typeof renderWorkoutMenu === 'function') renderWorkoutMenu(); 
+    
+    StorageManager.saveSessionState();
+    haptic('light');
+}
+
+// CTA Button Triggers Navigation
+function handleCTAClick() {
+    haptic('medium');
+    navigate('ui-workout-type');
+}
+
+// Legacy fallback
 function selectWeek(w) { 
     state.week = w; 
     if(typeof renderWorkoutMenu === 'function') renderWorkoutMenu(); 
@@ -766,13 +898,12 @@ function resetAndStartTimer(customTime = null) {
 function stopRestTimer() { if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; } }
 
 function nextStep() {
-    haptic('medium'); // Enhanced Haptic bump
+    haptic('medium'); 
     
-    // Add rapid visual Glow effect without delaying execution
     const btn = document.getElementById('btn-submit-set');
     if (btn) {
         btn.classList.remove('click-feedback');
-        void btn.offsetWidth; // Force Reflow
+        void btn.offsetWidth; 
         btn.classList.add('click-feedback');
         setTimeout(() => btn.classList.remove('click-feedback'), 300);
     }
@@ -827,11 +958,10 @@ function nextStep() {
         document.getElementById('btn-submit-set').style.display = 'none';
         document.getElementById('btn-skip-exercise').style.display = 'none';
         
-        // Animated Action Panel Reveal
         const actionPanel = document.getElementById('action-panel');
         actionPanel.style.display = 'block';
         actionPanel.classList.remove('is-visible');
-        void actionPanel.offsetWidth; // Trigger reflow for animation
+        void actionPanel.offsetWidth; 
         actionPanel.classList.add('is-visible');
 
         let nextName = getNextExerciseName();
