@@ -1,7 +1,7 @@
 /**
  * GYMPRO ELITE - ARCHIVE & ANALYTICS
- * Version: 13.1.2 (Phase 3: Visual Summary Screen & Separation of Concerns)
- * Includes: Finish Workout, Archive View, Calendar, Data Import/Export, Log Editing.
+ * Version: 14.0.0 (Phase 4 & 5: Analytics Engine & Dashboard Configurations)
+ * Includes: Finish Workout, Archive View, Calendar, Import/Export, Macro/Micro Analytics.
  */
 
 function finish() {
@@ -145,13 +145,12 @@ function finish() {
     });
 
     const summaryArea = document.getElementById('summary-area');
-    summaryArea.className = ""; // Remove monospace specific class for the new visual layout
+    summaryArea.className = ""; 
     summaryArea.innerHTML = html;
-    summaryArea.dataset.rawSummary = summaryText.trim(); // Store original format for Clipboard
+    summaryArea.dataset.rawSummary = summaryText.trim(); 
 }
 
 function copyResult() {
-    // Read the pristine raw text stored in the dataset
     const summaryArea = document.getElementById('summary-area');
     const rawText = summaryArea.dataset.rawSummary;
     
@@ -162,7 +161,6 @@ function copyResult() {
     const workoutDisplayName = state.type;
     const dateStr = new Date().toLocaleDateString('he-IL');
     
-    // Save to LocalStorage exactly as before
     const archiveObj = { 
         id: Date.now(), 
         date: dateStr, 
@@ -610,4 +608,490 @@ function deleteSetFromLog() {
         if(typeof initPickers === 'function') initPickers();
     }
     openSessionLog();
+}
+
+
+/* ======================================================================
+   PHASE 4 & 5: ANALYTICS ENGINE (MACRO & MICRO DATA)
+   ====================================================================== */
+
+function initAnalytics() {
+    const history = StorageManager.getArchive();
+    const prefs = StorageManager.getAnalyticsPrefs();
+    
+    // Initial Render Macro
+    renderAnalyticsMacro(history, prefs);
+    
+    // Setup Micro Exercise Selector
+    const exSet = new Set();
+    history.forEach(wo => {
+        if(wo.details) Object.keys(wo.details).forEach(ex => exSet.add(ex));
+    });
+    
+    const sel = document.getElementById('micro-ex-select');
+    sel.innerHTML = "";
+    Array.from(exSet).sort().forEach(ex => {
+        sel.add(new Option(ex, ex));
+    });
+
+    if(sel.options.length > 0) loadMicroData();
+}
+
+function switchAnalyticsTab(tab, btn) {
+    document.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.atab').forEach(t => t.classList.remove('active'));
+    document.getElementById('at-' + tab).classList.add('active');
+    
+    if(tab === 'micro') loadMicroData();
+    haptic('light');
+}
+
+// --- MACRO VIEW ---
+function renderAnalyticsMacro(history, prefs) {
+    if(history.length === 0) return;
+
+    // 1. Top Metrics
+    let totVol = 0, totTime = 0, peakVol = 0;
+    history.forEach(wo => {
+        let woVol = 0;
+        if(wo.details) { Object.values(wo.details).forEach(ex => woVol += (ex.vol || 0)); }
+        totVol += woVol;
+        totTime += (wo.duration || 0);
+        if(woVol > peakVol) peakVol = woVol;
+    });
+
+    document.getElementById('m-val-tot-vol').innerText = totVol.toLocaleString();
+    document.getElementById('m-sub-tot-vol').innerText = prefs.units;
+    document.getElementById('m-val-workouts').innerText = history.length;
+    document.getElementById('m-sub-workouts').innerText = "אימונים שבוצעו";
+    document.getElementById('m-val-time').innerText = Math.floor(totTime/60) + "h " + (totTime%60) + "m";
+    document.getElementById('m-sub-time').innerText = "זמן מצטבר";
+    document.getElementById('m-val-peak').innerText = peakVol.toLocaleString();
+    document.getElementById('m-sub-peak').innerText = "נפח מרבי";
+
+    // 2. Bar Chart (Volume)
+    const limit = prefs.volumeRange || 8;
+    const sliced = history.slice(0, limit).reverse();
+    const barContainer = document.getElementById('bar-chart-container');
+    barContainer.innerHTML = "";
+    document.getElementById('vol-chart-ttl').innerText = `התקדמות נפח (${limit} אימונים אחרונים)`;
+
+    let maxV = 0;
+    const vols = sliced.map(wo => {
+        let v = 0;
+        if(wo.details) Object.values(wo.details).forEach(ex => v += (ex.vol || 0));
+        if(v > maxV) maxV = v;
+        return { date: wo.date.substring(0,5), val: v };
+    });
+
+    vols.forEach(item => {
+        const hPct = maxV === 0 ? 0 : Math.max(5, (item.val / maxV) * 100);
+        const isPeak = item.val === maxV && maxV > 0;
+        const col = document.createElement('div');
+        col.className = 'bar-col';
+        col.innerHTML = `
+            <div class="bar-wrap">
+                <div class="bar-fill ${isPeak ? 'peak' : ''}" style="height:0%"></div>
+                <div class="bar-vl">${item.val >= 1000 ? (item.val/1000).toFixed(1)+'k' : item.val}</div>
+            </div>
+            <div class="bar-dt">${item.date}</div>
+        `;
+        barContainer.appendChild(col);
+        setTimeout(() => { col.querySelector('.bar-fill').style.height = `${hPct}%`; }, 100);
+    });
+
+    // 3. Donut Chart (Muscles)
+    renderDonutChart(history, prefs.muscleRange || "3m");
+
+    // 4. Consistency Line
+    renderConsistencyLine(history, prefs.consistencyRange || 8);
+}
+
+function renderDonutChart(history, range) {
+    const svg = document.getElementById('donut-svg-container');
+    const leg = document.getElementById('donut-legend-container');
+    svg.innerHTML = ""; leg.innerHTML = "";
+    
+    let daysToFilter = 9999;
+    if(range === '1m') daysToFilter = 30;
+    if(range === '3m') daysToFilter = 90;
+    
+    document.getElementById('muscle-chart-ttl').innerText = `חלוקת נפח שרירים (${range === 'all' ? 'הכל' : range === '1m' ? 'חודש אחרון' : '3 חודשים'})`;
+
+    const now = Date.now();
+    let muscleVols = {};
+    let totalVol = 0;
+
+    history.forEach(wo => {
+        const diff = (now - wo.timestamp) / (1000 * 3600 * 24);
+        if(diff <= daysToFilter && wo.details) {
+            Object.entries(wo.details).forEach(([exName, data]) => {
+                const exDb = state.exercises.find(e => e.name === exName);
+                if(exDb && exDb.muscles && exDb.muscles.length > 0) {
+                    const m = exDb.muscles[0];
+                    if(!muscleVols[m]) muscleVols[m] = 0;
+                    muscleVols[m] += (data.vol || 0);
+                    totalVol += (data.vol || 0);
+                }
+            });
+        }
+    });
+
+    if(totalVol === 0) {
+        document.getElementById('donut-center-val').innerText = "0";
+        return;
+    }
+
+    const sorted = Object.entries(muscleVols).sort((a,b) => b[1] - a[1]).slice(0, 4);
+    const colors =['#0A84FF', '#32D74B', '#FF9F0A', '#BF5AF2', '#FF453A'];
+    
+    document.getElementById('donut-center-val').innerText = (totalVol/1000).toFixed(1) + "k";
+    
+    const cx = 60, cy = 60, r = 45;
+    const circum = 2 * Math.PI * r;
+    let offset = 0;
+
+    sorted.forEach(([mName, val], i) => {
+        const pct = val / totalVol;
+        const dashVal = pct * circum;
+        
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', cx); circle.setAttribute('cy', cy); circle.setAttribute('r', r);
+        circle.setAttribute('fill', 'none'); circle.setAttribute('stroke', colors[i]);
+        circle.setAttribute('stroke-width', '16');
+        circle.setAttribute('stroke-dasharray', `${dashVal} ${circum}`);
+        circle.setAttribute('stroke-dashoffset', -offset);
+        circle.style.transition = "stroke-dashoffset 1s ease";
+        svg.appendChild(circle);
+        
+        offset += dashVal;
+
+        const pStr = Math.round(pct * 100) + "%";
+        leg.innerHTML += `
+            <div class="leg-row">
+                <div class="leg-dot" style="background:${colors[i]}"></div>
+                <div class="leg-nm">${mName}</div>
+                <div class="leg-pct">${pStr}</div>
+            </div>`;
+    });
+}
+
+function renderConsistencyLine(history, limit) {
+    const row = document.getElementById('cons-row-container');
+    row.innerHTML = "";
+    document.getElementById('cons-chart-ttl').innerText = `עקביות אימונים (${limit} אחרונים)`;
+
+    const sliced = history.slice(0, limit).reverse();
+    if(sliced.length < 2) return;
+
+    for(let i=0; i<sliced.length; i++) {
+        const isToday = i === sliced.length - 1;
+        const d1 = new Date(sliced[i].timestamp);
+        let gapStr = "-"; let cls = "t"; 
+        
+        if(i > 0) {
+            const d0 = new Date(sliced[i-1].timestamp);
+            const diffDays = Math.floor((d1 - d0) / (1000 * 3600 * 24));
+            gapStr = diffDays;
+            if(diffDays <= 5) cls = "g";
+            else if(diffDays <= 9) cls = "o";
+            else cls = "r";
+        } else { gapStr = "✓"; }
+
+        const dateStr = d1.getDate() + '/' + (d1.getMonth()+1);
+        
+        row.innerHTML += `
+            <div class="c-dot-wrap">
+                <div class="c-dot ${cls}">${gapStr}</div>
+                <div class="c-date">${dateStr}</div>
+            </div>
+        `;
+        if(i < sliced.length - 1) {
+            row.innerHTML += `<div class="c-line"></div>`;
+        }
+    }
+}
+
+// --- MICRO VIEW ---
+function loadMicroData() {
+    const sel = document.getElementById('micro-ex-select');
+    if(!sel || sel.options.length === 0) return;
+    
+    const exName = sel.value;
+    const history = StorageManager.getArchive();
+    const prefs = StorageManager.getAnalyticsPrefs();
+    
+    // Extract points
+    let dataPoints =[];
+    history.slice().reverse().forEach(wo => {
+        if(wo.details && wo.details[exName] && wo.details[exName].sets) {
+            let maxW = 0, maxE1RM = 0, totalVol = wo.details[exName].vol || 0;
+            
+            wo.details[exName].sets.forEach(setStr => {
+                let w = 0, r = 0;
+                let coreStr = setStr.includes('| Note:') ? setStr.split('| Note:')[0].trim() : setStr;
+                try {
+                    const parts = coreStr.split('x');
+                    w = parseFloat(parts[0].replace(/[^0-9.]/g, ''));
+                    r = parseInt(parts[1].split('(')[0].trim());
+                    if(!isNaN(w) && !isNaN(r)) {
+                        if(w > maxW) maxW = w;
+                        const e1rm = calcE1RM(w, r, prefs.formula);
+                        if(e1rm > maxE1RM) maxE1RM = e1rm;
+                    }
+                } catch(e){}
+            });
+            
+            dataPoints.push({ date: wo.date.substring(0,5), e1rm: Math.round(maxE1RM), maxW: w, vol: totalVol });
+        }
+    });
+
+    if(dataPoints.length === 0) return;
+
+    // Render Line Chart
+    renderLineChart(dataPoints, prefs);
+
+    // Calculate PR
+    let bestPR = { w: 0, r: 0, rir: '-', e1rm: 0, date: '-', ctx: '' };
+    history.forEach(wo => {
+        if(wo.details && wo.details[exName] && wo.details[exName].sets) {
+            wo.details[exName].sets.forEach(setStr => {
+                let w = 0, r = 0, rir = '-';
+                let coreStr = setStr;
+                let noteCtx = wo.type;
+                if(setStr.includes('| Note:')) {
+                    const p = setStr.split('| Note:');
+                    coreStr = p[0].trim();
+                    noteCtx += " • " + p[1].trim();
+                }
+                try {
+                    const parts = coreStr.split('x');
+                    w = parseFloat(parts[0].replace(/[^0-9.]/g, ''));
+                    const rest = parts[1];
+                    r = parseInt(rest.split('(')[0].trim());
+                    const rirMatch = rest.match(/\(RIR (.*?)\)/);
+                    if(rirMatch) rir = rirMatch[1];
+                    
+                    const e1rm = calcE1RM(w, r, prefs.formula);
+                    if(e1rm > bestPR.e1rm || (e1rm === bestPR.e1rm && w > bestPR.w)) {
+                        bestPR = { w, r, rir, e1rm: Math.round(e1rm), date: wo.date, ctx: noteCtx };
+                    }
+                } catch(e){}
+            });
+        }
+    });
+
+    document.getElementById('pr-val-weight').innerText = bestPR.w + " " + prefs.units;
+    document.getElementById('pr-val-date').innerText = bestPR.date;
+    document.getElementById('pr-val-reps').innerText = bestPR.r;
+    document.getElementById('pr-val-rir').innerText = bestPR.rir;
+    document.getElementById('pr-val-e1rm').innerText = bestPR.e1rm;
+    document.getElementById('pr-val-ctx').innerText = bestPR.ctx;
+}
+
+function calcE1RM(w, r, formula) {
+    if(r === 1) return w;
+    if(formula === 'brzycki') return w * (36 / (37 - r));
+    if(formula === 'lombardi') return w * Math.pow(r, 0.10);
+    return w * (1 + (r / 30)); // default epley
+}
+
+function renderLineChart(dataPoints, prefs) {
+    const limit = prefs.microPoints || 6;
+    const axis = prefs.microAxis || 'e1rm';
+    const sliced = dataPoints.slice(-limit);
+    
+    let titleStr = "Estimated 1RM";
+    if(axis === 'maxW') titleStr = "משקל עבודה מקסימלי";
+    if(axis === 'vol') titleStr = "נפח מצטבר לתרגיל";
+    document.getElementById('lc-ttl').innerText = titleStr;
+
+    const svg = document.getElementById('lc-svg-container');
+    const spark = document.getElementById('spark-svg-container');
+    svg.innerHTML = ""; spark.innerHTML = "";
+    
+    const svgW = 320, svgH = 165, padY = 25, padX = 20;
+    
+    let vals = sliced.map(d => d[axis]);
+    let minV = Math.min(...vals); let maxV = Math.max(...vals);
+    if(minV === maxV) { minV -= 10; maxV += 10; }
+    
+    const getX = i => padX + (i * ((svgW - padX*2) / Math.max(1, sliced.length - 1)));
+    const getY = v => svgH - padY - ((v - minV) / (maxV - minV)) * (svgH - padY * 2);
+
+    let pathD = "";
+    sliced.forEach((pt, i) => {
+        const x = getX(i), y = getY(pt[axis]);
+        pathD += (i === 0 ? `M ${x} ${y} ` : `L ${x} ${y} `);
+        
+        // Add Grid Lines & Date Labels
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', x); line.setAttribute('y1', padY);
+        line.setAttribute('x2', x); line.setAttribute('y2', svgH - padY);
+        line.setAttribute('stroke', 'rgba(255,255,255,0.05)');
+        svg.appendChild(line);
+
+        const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        txt.setAttribute('x', x); txt.setAttribute('y', svgH - 5);
+        txt.setAttribute('fill', 'rgba(255,255,255,0.4)');
+        txt.setAttribute('font-size', '10'); txt.setAttribute('text-anchor', 'middle');
+        txt.textContent = pt.date;
+        svg.appendChild(txt);
+        
+        // Value Text
+        const valTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        valTxt.setAttribute('x', x); valTxt.setAttribute('y', y - 10);
+        valTxt.setAttribute('fill', 'var(--accent)'); valTxt.setAttribute('font-size', '11');
+        valTxt.setAttribute('font-weight', 'bold'); valTxt.setAttribute('text-anchor', 'middle');
+        valTxt.textContent = axis === 'vol' ? (pt[axis]/1000).toFixed(1)+'k' : pt[axis];
+        svg.appendChild(valTxt);
+    });
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', pathD); path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', 'var(--accent)'); path.setAttribute('stroke-width', '3');
+    path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(path);
+
+    sliced.forEach((pt, i) => {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', getX(i)); circle.setAttribute('cy', getY(pt[axis]));
+        circle.setAttribute('r', '4'); circle.setAttribute('fill', '#1c1c1e');
+        circle.setAttribute('stroke', 'var(--accent)'); circle.setAttribute('stroke-width', '2');
+        svg.appendChild(circle);
+    });
+
+    // Intensity / Sparkline Logic
+    if(sliced.length >= 2) {
+        const first = sliced[0][axis];
+        const last = sliced[sliced.length-1][axis];
+        const delta = last - first;
+        const pct = (delta / first) * 100;
+        
+        const isUp = delta >= 0;
+        const col = isUp ? 'var(--success)' : 'var(--danger)';
+        const sign = isUp ? '+' : '';
+        
+        document.getElementById('int-val-score').innerText = last;
+        document.getElementById('int-val-delta').innerText = `${sign}${pct.toFixed(1)}% (${limit} אחרונים)`;
+        document.getElementById('int-val-delta').style.color = col;
+
+        const spW = 140, spH = 52, sPad = 5;
+        const getSpX = i => sPad + (i * ((spW - sPad*2) / Math.max(1, sliced.length - 1)));
+        const getSpY = v => spH - sPad - ((v - minV) / (maxV - minV)) * (spH - sPad * 2);
+        
+        let spPath = "";
+        sliced.forEach((pt, i) => { spPath += (i === 0 ? `M ${getSpX(i)} ${getSpY(pt[axis])} ` : `L ${getSpX(i)} ${getSpY(pt[axis])} `); });
+        
+        const spP = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        spP.setAttribute('d', spPath); spP.setAttribute('fill', 'none');
+        spP.setAttribute('stroke', col); spP.setAttribute('stroke-width', '2');
+        spP.setAttribute('stroke-linecap', 'round');
+        spark.appendChild(spP);
+    }
+}
+
+function togglePRAccordion() {
+    const body = document.getElementById('pr-body-container');
+    const icon = document.getElementById('pr-arr-icon');
+    body.classList.toggle('open');
+    icon.classList.toggle('open');
+    haptic('light');
+}
+
+// --- CHIP FILTERS ACTIONS ---
+function setVolumeRange(val, btn) {
+    const prefs = StorageManager.getAnalyticsPrefs(); prefs.volumeRange = val; StorageManager.saveAnalyticsPrefs(prefs);
+    btn.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active')); btn.classList.add('active');
+    renderAnalyticsMacro(StorageManager.getArchive(), prefs); haptic('light');
+}
+function setMuscleRange(val, btn) {
+    const prefs = StorageManager.getAnalyticsPrefs(); prefs.muscleRange = val; StorageManager.saveAnalyticsPrefs(prefs);
+    btn.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active')); btn.classList.add('active');
+    renderAnalyticsMacro(StorageManager.getArchive(), prefs); haptic('light');
+}
+function setConsistencyRange(val, btn) {
+    const prefs = StorageManager.getAnalyticsPrefs(); prefs.consistencyRange = val; StorageManager.saveAnalyticsPrefs(prefs);
+    btn.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active')); btn.classList.add('active');
+    renderAnalyticsMacro(StorageManager.getArchive(), prefs); haptic('light');
+}
+function setMicroAxis(val, btn) {
+    const prefs = StorageManager.getAnalyticsPrefs(); prefs.microAxis = val; StorageManager.saveAnalyticsPrefs(prefs);
+    btn.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active')); btn.classList.add('active');
+    loadMicroData(); haptic('light');
+}
+function setMicroPoints(val, btn) {
+    const prefs = StorageManager.getAnalyticsPrefs(); prefs.microPoints = val; StorageManager.saveAnalyticsPrefs(prefs);
+    btn.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active')); btn.classList.add('active');
+    loadMicroData(); haptic('light');
+}
+
+// --- SETTINGS SHEETS ---
+function openAnalyticsSettings() {
+    const prefs = StorageManager.getAnalyticsPrefs();
+    const drawer = document.getElementById('sheet-modal');
+    const content = document.getElementById('sheet-content');
+    const tpl = document.getElementById('tpl-analytics-settings').content.cloneNode(true);
+    
+    content.innerHTML = ""; content.appendChild(tpl);
+    
+    document.getElementById('pref-name').value = prefs.name || "";
+    document.getElementById('pref-units').value = prefs.units || "kg";
+    document.getElementById('pref-formula').value = prefs.formula || "epley";
+    
+    document.getElementById('sheet-overlay').style.display = 'block';
+    drawer.classList.add('open');
+}
+
+function saveAnalyticsSettings() {
+    const prefs = StorageManager.getAnalyticsPrefs();
+    prefs.name = document.getElementById('pref-name').value.trim();
+    prefs.units = document.getElementById('pref-units').value;
+    prefs.formula = document.getElementById('pref-formula').value;
+    
+    StorageManager.saveAnalyticsPrefs(prefs);
+    closeDayDrawer();
+    initAnalytics(); // Re-render
+    if(typeof renderDashboardStats === 'function') renderDashboardStats();
+    haptic('success');
+}
+
+function openHeroSettings() {
+    const prefs = StorageManager.getAnalyticsPrefs();
+    const drawer = document.getElementById('sheet-modal');
+    const content = document.getElementById('sheet-content');
+    const tpl = document.getElementById('tpl-hero-settings').content.cloneNode(true);
+    
+    content.innerHTML = ""; content.appendChild(tpl);
+    
+    const cbs = content.querySelectorAll('.hero-metric-cb');
+    cbs.forEach(cb => {
+        if(prefs.heroMetrics && prefs.heroMetrics.includes(cb.value)) cb.checked = true;
+        
+        // Max 3 Limitation logic
+        cb.addEventListener('change', () => {
+            const checked = content.querySelectorAll('.hero-metric-cb:checked');
+            if(checked.length > 3) {
+                cb.checked = false;
+                alert("ניתן לבחור עד 3 מדדים שיוצגו במסך הבית");
+            }
+        });
+    });
+    
+    document.getElementById('sheet-overlay').style.display = 'block';
+    drawer.classList.add('open');
+}
+
+function saveHeroSettings() {
+    const checked = document.querySelectorAll('#sheet-content .hero-metric-cb:checked');
+    if(checked.length !== 3) { alert("חובה לבחור בדיוק 3 מדדים"); return; }
+    
+    const prefs = StorageManager.getAnalyticsPrefs();
+    prefs.heroMetrics = Array.from(checked).map(c => c.value);
+    
+    StorageManager.saveAnalyticsPrefs(prefs);
+    closeDayDrawer();
+    if(typeof renderDashboardStats === 'function') renderDashboardStats(); // Refresh Home screen
+    haptic('success');
 }
