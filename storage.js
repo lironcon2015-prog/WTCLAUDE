@@ -11,6 +11,7 @@ const StorageManager = {
     KEY_DB_WORKOUTS: 'gympro_db_workouts',
     KEY_META: 'gympro_workout_meta',
     KEY_SESSION: 'gympro_current_session', 
+    KEY_ANALYTICS_PREFS: 'gympro_analytics_prefs', // NEW: Analytics & Dashboard Preferences
 
     getData(key) {
         try { return JSON.parse(localStorage.getItem(key)); } 
@@ -55,6 +56,27 @@ const StorageManager = {
         }
     },
 
+    // --- ANALYTICS PREFS METHODS ---
+    getAnalyticsPrefs() {
+        const defaultPrefs = {
+            name: "",
+            units: "kg",
+            formula: "epley",
+            heroMetrics: ["days", "vol", "duration"],
+            volumeRange: 8,
+            muscleRange: "3m",
+            consistencyRange: 8,
+            microPoints: 6,
+            microAxis: "e1rm"
+        };
+        const stored = this.getData(this.KEY_ANALYTICS_PREFS);
+        return stored ? { ...defaultPrefs, ...stored } : defaultPrefs;
+    },
+
+    saveAnalyticsPrefs(prefs) {
+        this.saveData(this.KEY_ANALYTICS_PREFS, prefs);
+    },
+
     saveSessionState() {
         const sessionData = {
             state: JSON.parse(JSON.stringify(state)),
@@ -83,6 +105,7 @@ const StorageManager = {
             localStorage.removeItem(this.KEY_DB_WORKOUTS);
             localStorage.removeItem(this.KEY_META);
             localStorage.removeItem(this.KEY_SESSION);
+            localStorage.removeItem(this.KEY_ANALYTICS_PREFS);
             location.reload();
         }
     },
@@ -111,13 +134,13 @@ const StorageManager = {
     },
 
     saveToArchive(workoutObj) {
-        let history = this.getData(this.KEY_ARCHIVE) || [];
+        let history = this.getData(this.KEY_ARCHIVE) ||[];
         history.unshift(workoutObj);
         this.saveData(this.KEY_ARCHIVE, history);
     },
 
     getArchive() {
-        return this.getData(this.KEY_ARCHIVE) || [];
+        return this.getData(this.KEY_ARCHIVE) ||[];
     },
     
     deleteFromArchive(timestamp) {
@@ -130,7 +153,8 @@ const StorageManager = {
         return {
             weights: this.getData(this.KEY_WEIGHTS),
             rms: this.getData(this.KEY_RM),
-            archive: this.getArchive()
+            archive: this.getArchive(),
+            prefs: this.getAnalyticsPrefs()
         };
     },
 
@@ -138,12 +162,13 @@ const StorageManager = {
         if(dataObj.weights) this.saveData(this.KEY_WEIGHTS, dataObj.weights);
         if(dataObj.rms) this.saveData(this.KEY_RM, dataObj.rms);
         if(dataObj.archive) this.saveData(this.KEY_ARCHIVE, dataObj.archive);
+        if(dataObj.prefs) this.saveData(this.KEY_ANALYTICS_PREFS, dataObj.prefs);
     },
 
     exportConfiguration() {
         const configData = {
             type: 'config_only',
-            version: '12.12.5',
+            version: '14.0.0',
             date: new Date().toISOString(),
             workouts: this.getData(this.KEY_DB_WORKOUTS),
             exercises: this.getData(this.KEY_DB_EXERCISES),
