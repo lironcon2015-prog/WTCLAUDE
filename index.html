@@ -3,13 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GymPro Elite 13.1.0</title>
+    <title>GymPro Elite 14.0 (Stage 2)</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- Liquid Glass Refraction SVG Filter (iOS 26 Effect) -->
+    <svg style="width:0;height:0;position:absolute;pointer-events:none;" aria-hidden="true" focusable="false">
+        <defs>
+            <filter id="liquid-glass" color-interpolation-filters="sRGB">
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+        </defs>
+    </svg>
+
     <div class="glass-overlay"></div>
     
     <!-- Warmup Modal -->
@@ -171,42 +181,72 @@
 
         <main class="content-area">
             
+            <!-- TAB 1: DASHBOARD (HOME) -->
             <div id="ui-week" class="screen active">
-                <div class="hero-section"><h1>ברוך הבא <span>לוח בקרה אישי</span></h1></div>
-                
-                <div class="section-label mt-0">בחר תוכנית שבועית</div>
-                
-                <div class="grid-menu grid-2-cols mt-sm">
-                    <button class="menu-card" onclick="selectWeek(1)"><span>שבוע 1</span><div class="chevron"></div></button>
-                    <button class="menu-card" onclick="selectWeek(2)"><span>שבוע 2</span><div class="chevron"></div></button>
-                    <button class="menu-card" onclick="selectWeek(3)"><span>שבוע 3</span><div class="chevron"></div></button>
-                    <button class="menu-card deload-card" onclick="selectWeek('deload')"><span>דילואוד</span><div class="chevron"></div></button>
+                <div class="hero-card">
+                    <div class="flex-between">
+                        <div class="hero-title">מוכן לאימון?</div>
+                        <!-- Placeholder for Hero Edit Sheet (Stage 3/4) -->
+                        <button class="settings-btn m-0 p-0" style="font-size:1.2em; opacity:0.8;">⚙️</button> 
+                    </div>
+                    <div class="streak-pill" id="dashboard-streak">🔥 0 שבועות ברצף</div>
+                    <div class="hero-stats">
+                        <div class="h-stat">
+                            <div class="h-stat-val" id="dash-stat-1">-</div>
+                            <div class="h-stat-lbl">ימים מאז<br>אימון אחרון</div>
+                        </div>
+                        <div class="h-stat">
+                            <div class="h-stat-val" id="dash-stat-2">-</div>
+                            <div class="h-stat-lbl">נפח אחרון<br>(kg)</div>
+                        </div>
+                        <div class="h-stat">
+                            <div class="h-stat-val" id="dash-stat-3">-</div>
+                            <div class="h-stat-lbl">משך<br>אחרון</div>
+                        </div>
+                    </div>
                 </div>
 
-                <button class="action-card secondary mt-lg" onclick="openArchive()">
-                    <div class="card-text center-text">ארכיון וגיבוי</div>
-                </button>
+                <button class="btn-cta mb-lg" onclick="handleCTAClick()">▶&nbsp; התחל אימון חדש</button>
+                
+                <div class="section-label mt-0">בחר שבוע (מסומן: <span id="current-week-display">1</span>)</div>
+                <div class="week-grid mb-md">
+                    <div class="week-card sel" onclick="selectWeekUI(1, this, '#0A84FF')">
+                        <div><h4>שבוע 1</h4><p>תוכנית רגילה</p></div>
+                        <div class="wk-dot" style="background:var(--accent)"></div>
+                    </div>
+                    <div class="week-card" onclick="selectWeekUI(2, this, '#32D74B')">
+                        <div><h4>שבוע 2</h4><p>תוכנית רגילה</p></div>
+                        <div class="wk-dot" style="background:var(--success)"></div>
+                    </div>
+                    <div class="week-card" onclick="selectWeekUI(3, this, '#FF9F0A')">
+                        <div><h4>שבוע 3</h4><p>תוכנית רגילה</p></div>
+                        <div class="wk-dot" style="background:var(--warning)"></div>
+                    </div>
+                    <div class="week-card" onclick="selectWeekUI('deload', this, '#BF5AF2')">
+                        <div><h4>Deload</h4><p>שבוע הקלה</p></div>
+                        <div class="wk-dot" style="background:var(--type-free)"></div>
+                    </div>
+                </div>
 
-                <div class="version-footer">GymPro Elite v13.1.0</div>
+                <div class="section-label">כלים</div>
+                <button class="btn-sec" onclick="openWorkoutManager()">עורך תוכניות ותרגילים</button>
+                <button class="btn-sec" style="border-color:rgba(191,90,242,0.35);color:var(--type-free);background:rgba(191,90,242,0.06);" onclick="startFreestyle()">אימון Freestyle</button>
+
+                <div class="version-footer">GymPro Elite v14 (Stage 2)</div>
+            </div>
+
+            <!-- TAB 2: ANALYTICS (Placeholder) -->
+            <div id="ui-analytics" class="screen">
+                <div class="hero-section"><h2>אנליטיקה ונתונים</h2></div>
+                <p class="text-center color-dim mt-lg">מסך האנליטיקה יבנה בשלב 3...</p>
             </div>
 
             <!-- SETTINGS SCREEN -->
             <div id="ui-settings" class="screen">
                 <h2 class="section-title">הגדרות וניהול</h2>
-                
-                <button class="menu-card tall w-100 mb-sm border-accent" onclick="openWorkoutManager()">
-                    <h3 class="color-accent m-0">ניהול תוכניות אימון</h3>
-                    <p>ערוך, צור או מחק תוכניות</p>
-                </button>
-
-                <button class="menu-card tall w-100 mb-lg border-type-b" onclick="openExerciseDatabase()">
-                    <h3 class="color-type-b m-0">ניהול מאגר תרגילים</h3>
-                    <p>יצירה, עריכה וניהול הגדרות לכל התרגילים</p>
-                </button>
-
                 <div class="glass-card">
                     <h3 class="mt-0">ניהול נתונים</h3>
-                    <p class="color-dim text-sm mb-0">גרסה V13.1.0</p>
+                    <p class="color-dim text-sm mb-0">גרסה V14.0</p>
                     <button class="btn-text color-danger border-danger rounded-md mb-lg" onclick="resetToFactorySettings()">איפוס להגדרות יצרן</button>
                     
                     <div class="border-top pt-md">
@@ -218,6 +258,7 @@
                     </div>
                 </div>
                 <input type="file" id="import-config-file" class="d-none" onchange="processConfigImport(this)">
+                <button class="btn-text mt-md" onclick="handleBackClick()">חזרה ללוח הבקרה</button>
             </div>
 
             <!-- EXERCISE DATABASE MANAGER -->
@@ -250,7 +291,7 @@
                 <div id="manager-list" class="vertical-stack"></div>
                 <div class="mt-md">
                     <button class="btn-main primary-gradient" onclick="createNewWorkout()">+ צור תוכנית חדשה</button>
-                    <button class="btn-text mt-md" onclick="navigate('ui-week', true)">חזרה ללוח הבקרה</button>
+                    <button class="btn-text mt-md" onclick="handleBackClick()">חזור</button>
                 </div>
             </div>
 
@@ -315,7 +356,7 @@
             <div id="ui-workout-type" class="screen">
                 <div class="hero-section"><h2 id="workout-week-title">בחר מסלול</h2></div>
                 <div id="workout-menu-container" class="vertical-stack"></div>
-                <button class="menu-card tall freestyle-card mt-md" onclick="startFreestyle()"><h3>Freestyle</h3><p>בחירה חופשית</p></button>
+                <button class="btn-text mt-lg" onclick="handleBackClick()">חזור</button>
             </div>
             
             <!-- VARIATION / FREESTYLE -->
@@ -458,6 +499,7 @@
                 <button class="btn-main primary-gradient" onclick="copyResult()">העתק וסגור</button>
             </div>
 
+            <!-- TAB 3: ARCHIVE -->
             <div id="ui-archive" class="screen">
                 <div class="hero-section"><h2>ארכיון וגיבוי</h2></div>
                 <div class="input-grid mb-lg">
@@ -502,10 +544,22 @@
 
         </main>
     </div>
+
+    <!-- Tab Bar (iOS Style) -->
+    <div class="tab-bar" id="main-tab-bar">
+        <button class="tab-btn active" id="tb-ui-week" onclick="navigate('ui-week', true)">
+            <div class="tab-label">אימון</div>
+        </button>
+        <button class="tab-btn" id="tb-ui-analytics" onclick="navigate('ui-analytics', true)">
+            <div class="tab-label">אנליטיקה</div>
+        </button>
+        <button class="tab-btn" id="tb-ui-archive" onclick="navigate('ui-archive', true)">
+            <div class="tab-label">ארכיון</div>
+        </button>
+    </div>
+
     <script src="data.js"></script>
     <script src="storage.js"></script>
-    
-    <!-- הסדר כאן קריטי! אל תשנה אותו -->
     <script src="workout-core.js"></script>
     <script src="editor-logic.js"></script>
     <script src="archive-logic.js"></script>
