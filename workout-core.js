@@ -1,6 +1,6 @@
 /**
  * GYMPRO ELITE - WORKOUT CORE LOGIC
- * Version: 14.0.0 (Stage 2: Dashboard & Tab Bar Navigation)
+ * Version: 14.0.0 (Stage 2 & 4: Dashboard, Tab Bar Navigation & Dynamic Metrics)
  * Includes: Global State, Init, Navigation, Workout Engine, Timer, Intra-Workout Persistence.
  */
 
@@ -70,42 +70,78 @@ window.onload = () => {
 
 function renderDashboardStats() {
     const archive = StorageManager.getArchive();
-    const dashDays = document.getElementById('dash-stat-1');
-    const dashVol = document.getElementById('dash-stat-2');
-    const dashDur = document.getElementById('dash-stat-3');
+    const prefs = StorageManager.getAnalyticsPrefs();
+
+    // 1. Update Hero Title based on prefs.name
+    const heroTitleEl = document.querySelector('.hero-title');
+    if (heroTitleEl) {
+        heroTitleEl.innerText = prefs.name ? `מוכן לאימון, ${prefs.name}?` : "מוכן לאימון?";
+    }
+
     const streakPill = document.getElementById('dashboard-streak');
 
+    // Handle Empty State
     if (!archive || archive.length === 0) {
-        if(dashDays) dashDays.innerText = "-";
-        if(dashVol) dashVol.innerText = "-";
-        if(dashDur) dashDur.innerText = "-";
+        for(let i = 1; i <= 3; i++) {
+            let st = document.getElementById('dash-stat-'+i);
+            let lb = document.getElementById('dash-lbl-'+i);
+            if(st) st.innerText = "-";
+            if(lb) lb.innerHTML = "-";
+        }
         if(streakPill) streakPill.innerText = "🔥 0 שבועות ברצף";
         return;
     }
 
     const lastWorkout = archive[0];
 
-    // 1. Days since last workout
+    // Calc Data Points
     const lastDate = new Date(lastWorkout.timestamp);
     const now = new Date();
     const diffTime = Math.abs(now - lastDate);
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     
-    if(dashDays) dashDays.innerText = diffDays;
-
-    // 2. Volume of last workout
     let totalVolume = 0;
     if (lastWorkout.details) {
         for (let ex in lastWorkout.details) {
             totalVolume += lastWorkout.details[ex].vol || 0;
         }
     }
-    if(dashVol) dashVol.innerText = totalVolume.toLocaleString();
 
-    // 3. Duration
-    if(dashDur) dashDur.innerText = (lastWorkout.duration || 0) + "m";
+    let avgVol = 0;
+    let count = Math.min(archive.length, 4);
+    if(count > 0) {
+        let sum = 0;
+        for(let i = 0; i < count; i++) {
+            if(archive[i].details) {
+                for (let ex in archive[i].details) {
+                    sum += archive[i].details[ex].vol || 0;
+                }
+            }
+        }
+        avgVol = Math.round(sum / count);
+    }
 
-    // 4. Streak (Active Weeks)
+    // Map 5 Available Metrics
+    const metricsData = {
+        days: { lbl: "ימים מאז<br>אימון אחרון", val: diffDays },
+        vol: { lbl: "נפח אחרון<br>(kg)", val: totalVolume.toLocaleString() },
+        duration: { lbl: "משך<br>אחרון", val: (lastWorkout.duration || 0) + "m" },
+        avgVol: { lbl: "ממוצע נפח<br>(4 אחרונים)", val: avgVol.toLocaleString() },
+        totalWorkouts: { lbl: "סך אימונים<br>כולל", val: archive.length }
+    };
+
+    // Render User's Top 3 Preferences
+    const chosen = (prefs.heroMetrics && prefs.heroMetrics.length === 3) ? prefs.heroMetrics :["days", "vol", "duration"];
+    
+    chosen.forEach((key, idx) => {
+        const num = idx + 1;
+        const statEl = document.getElementById('dash-stat-' + num);
+        const lblEl = document.getElementById('dash-lbl-' + num);
+        if(statEl && metricsData[key]) statEl.innerText = metricsData[key].val;
+        if(lblEl && metricsData[key]) lblEl.innerHTML = metricsData[key].lbl;
+    });
+
+    // Calc Streak
     if(streakPill) {
         let activeWeeks = new Set();
         archive.forEach(wo => {
@@ -151,7 +187,7 @@ function restoreSession() {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById(lastScreen).classList.add('active');
         
-        const isRoot = ['ui-week', 'ui-analytics', 'ui-archive'].includes(lastScreen);
+        const isRoot =['ui-week', 'ui-analytics', 'ui-archive'].includes(lastScreen);
         document.getElementById('global-back').style.visibility = isRoot ? 'hidden' : 'visible';
         
         // Restore Tab Bar state
@@ -205,6 +241,8 @@ function restoreSession() {
         }
         
         if(lastScreen === 'ui-week') renderDashboardStats();
+        if(lastScreen === 'ui-analytics' && typeof initAnalytics === 'function') initAnalytics();
+        
         haptic('success');
     } else {
         discardSession();
@@ -264,7 +302,7 @@ function navigate(id, clearStack = false) {
     }
     
     // Tab Bar Visibility & Active State Logic
-    const isRoot = ['ui-week', 'ui-analytics', 'ui-archive'].includes(id);
+    const isRoot =['ui-week', 'ui-analytics', 'ui-archive'].includes(id);
     document.getElementById('global-back').style.visibility = isRoot ? 'hidden' : 'visible';
 
     const tabBar = document.getElementById('main-tab-bar');
@@ -276,6 +314,7 @@ function navigate(id, clearStack = false) {
             if(activeBtn) activeBtn.classList.add('active');
             
             if(id === 'ui-week') renderDashboardStats();
+            if(id === 'ui-analytics' && typeof initAnalytics === 'function') initAnalytics();
         } else {
             tabBar.classList.add('hidden');
         }
@@ -366,6 +405,7 @@ function handleBackClick() {
             if(activeBtn) activeBtn.classList.add('active');
             
             if(prevScreen === 'ui-week') renderDashboardStats();
+            if(prevScreen === 'ui-analytics' && typeof initAnalytics === 'function') initAnalytics();
         } else {
             tabBar.classList.add('hidden');
         }
