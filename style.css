@@ -95,6 +95,9 @@ body {
     margin-top: var(--gap);
 }
 
+/* display של המחבר גובר על כלל [hidden] של הדפדפן, ולכן צריך להחזיר אותו במפורש */
+.btn-block[hidden] { display: none; }
+
 .input {
     width: 100%;
     padding: 11px 13px;
@@ -144,7 +147,9 @@ body {
 #screen-setup {
     justify-content: center;
     min-height: 100dvh;
-    padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+    /* env() מחזיר 0 כשאין חריץ, ולכן זה no-op בדפדפן רגיל ו-file://.
+       נחוץ במסך מלא ובמיוחד ב-iOS, ששם סרגל המצב מרחף מעל התוכן. */
+    padding: calc(20px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
     overflow-y: auto;
 }
 
@@ -220,7 +225,7 @@ body {
 #screen-game {
     flex-direction: column;
     min-height: 100dvh;
-    padding: 8px 10px calc(10px + env(safe-area-inset-bottom));
+    padding: calc(8px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom));
     gap: var(--gap);
 }
 

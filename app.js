@@ -14,6 +14,39 @@ var App = (function () {
 
     var setup = { count: 2, names: ['', '', '', ''], score: 501, bestOf: 5 };
 
+    /* ---------- PWA ---------- */
+
+    var deferredInstallPrompt = null;
+
+    /*
+     * אמת רק כשהקובץ נטען כ-<script src>. בגרסת הקובץ היחיד הסקריפט מוטבע,
+     * currentScript.src ריק, ואין sw.js לצידנו — ואז אסור אפילו לנסות לרשום:
+     * כשל 404 ברישום מדפיס לקונסולה שגיאה ש-catch לא תופס.
+     */
+    var IS_EXTERNAL_SCRIPT = !!(document.currentScript && document.currentScript.src);
+
+    function canRegisterSW() {
+        /*
+         * ב-file:// כרום מדווח isSecureContext === true וגם
+         * 'serviceWorker' in navigator === true, אבל register() נדחה עם TypeError.
+         * הבדיקה היחידה שמחזיקה בפועל היא הפרוטוקול.
+         */
+        return IS_EXTERNAL_SCRIPT &&
+               (location.protocol === 'https:' || location.protocol === 'http:') &&
+               !!navigator.serviceWorker;
+    }
+
+    function registerServiceWorker() {
+        if (!canRegisterSW()) { return; }
+        try {
+            /* יחסי בכוונה: ב-/WTCLAUDE/ זה /WTCLAUDE/sw.js, וה-scope נגזר ממנו לבד.
+               '/sw.js' היה מפנה לשורש הדומיין ומחזיר 404. */
+            navigator.serviceWorker.register('sw.js').catch(function () {
+                /* אופליין הוא תוספת, לא תנאי לשימוש */
+            });
+        } catch (e) { /* דפדפן ישן מאוד */ }
+    }
+
     /* ---------- עזרי DOM ---------- */
 
     function $(id) { return document.getElementById(id); }
@@ -443,8 +476,27 @@ var App = (function () {
             overlayMatch: $('overlay-match'),
             matchTitle: $('match-title'),
             matchSub: $('match-sub'),
-            btnNewMatch: $('btn-new-match')
+            btnNewMatch: $('btn-new-match'),
+            btnInstall: $('btn-install')
         };
+
+        /* כשכבר רצים מותקן אין מה להציע — beforeinstallprompt גם לא ייורה */
+        if (window.matchMedia('(display-mode: fullscreen)').matches ||
+            window.matchMedia('(display-mode: standalone)').matches ||
+            navigator.standalone === true) {
+            els.btnInstall.remove();
+            els.btnInstall = null;
+        } else {
+            els.btnInstall.addEventListener('click', function () {
+                if (!deferredInstallPrompt) { return; }
+                var prompt = deferredInstallPrompt;
+                deferredInstallPrompt = null;   /* prompt() הוא חד-פעמי */
+                els.btnInstall.hidden = true;
+                prompt.prompt();
+            });
+            /* האירוע עשוי היה להיירות לפני ש-init רץ */
+            if (deferredInstallPrompt) { els.btnInstall.hidden = false; }
+        }
 
         applyPrefs();
         buildNameInputs();
@@ -459,11 +511,33 @@ var App = (function () {
         offerResume();
     }
 
+    /*
+     * מאזיני ההתקנה נרשמים כאן, ברמת ה-IIFE, ולא בתוך init(): init עשוי להידחות
+     * ל-DOMContentLoaded, ו-beforeinstallprompt יכול להיירות לפני כן.
+     */
+    window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        if (els.btnInstall) { els.btnInstall.hidden = false; }
+    });
+
+    window.addEventListener('appinstalled', function () {
+        deferredInstallPrompt = null;
+        if (els.btnInstall) { els.btnInstall.hidden = true; }
+    });
+
     /* עשוי לרוץ גם אחרי ש-DOMContentLoaded כבר נורה (למשל בגרסת קובץ יחיד) */
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
+    }
+
+    /* רישום ה-service worker אחרי load, כדי שלא יתחרה עם הציור הראשון */
+    if (document.readyState === 'complete') {
+        registerServiceWorker();
+    } else {
+        window.addEventListener('load', registerServiceWorker);
     }
 
     return {

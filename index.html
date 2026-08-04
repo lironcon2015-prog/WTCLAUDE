@@ -5,7 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0f1115">
 <title>דארטס — לוח ניקוד</title>
-<link rel="stylesheet" href="style.css?v=1">
+
+<!-- PWA. כל הנתיבים יחסיים, כדי שאותם קבצים יעבדו גם בתת-נתיב של GitHub Pages,
+     גם בשורש דומיין וגם בכל פורק — בלי לקודד נתיב אחד. -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<!-- iOS מתעלם מ-display ומ-orientation שב-manifest; שלוש השורות הבאות הן
+     הדרך היחידה לקבל שם חלון עצמאי, שם קצר במסך הבית וסרגל מצב שקוף. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="דארטס">
+
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
 
@@ -62,6 +75,9 @@
         <p class="error" id="setup-error" hidden></p>
         <button type="button" id="btn-start" class="btn btn-primary btn-block">התחל משחק</button>
         <p class="footnote">כניסה חופשית · חובה לסיים בדאבל</p>
+        <!-- מוצג רק כשהדפדפן מאשר התקנה (אנדרואיד/כרום). ב-iOS האירוע לא נורה
+             אף פעם, ולכן הכפתור נשאר מוסתר וההתקנה נעשית דרך שיתוף ← הוסף למסך הבית. -->
+        <button type="button" id="btn-install" class="btn btn-ghost btn-block" hidden>התקן את האפליקציה</button>
     </div>
 </section>
 
@@ -116,11 +132,11 @@
     </div>
 </div>
 
-<script src="board.js?v=1"></script>
-<script src="checkout.js?v=1"></script>
-<script src="engine.js?v=1"></script>
-<script src="storage.js?v=1"></script>
-<script src="app.js?v=1"></script>
-<script src="tests.js?v=1"></script>
+<script src="board.js?v=2"></script>
+<script src="checkout.js?v=2"></script>
+<script src="engine.js?v=2"></script>
+<script src="storage.js?v=2"></script>
+<script src="app.js?v=2"></script>
+<script src="tests.js?v=2"></script>
 </body>
 </html>
