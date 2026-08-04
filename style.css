@@ -386,6 +386,8 @@ body {
     min-height: 200px;
     display: grid;
     place-items: center;
+    /* מבטל את הריפוד האופקי של #screen-game כדי שהלוח יגיע לקצוות */
+    margin-inline: -10px;
 }
 
 #board-svg {
@@ -411,6 +413,8 @@ body {
 }
 
 .db-miss { fill: var(--bg-sunken); }
+/* טבעת המסגרת שנושאת את המספרים — מה שהיה קודם שוליים ריקים */
+.db-surround { fill: var(--bg-raised); }
 .db-rim { fill: #2a2f39; }
 .db-bed-dark { fill: var(--board-black); }
 .db-bed-light { fill: var(--board-cream); }
@@ -426,7 +430,7 @@ body {
 
 .db-label {
     fill: var(--text);
-    font-size: 22px;
+    font-size: 16px;
     font-weight: 700;
     text-anchor: middle;
     dominant-baseline: central;

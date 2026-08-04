@@ -18,7 +18,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="דארטס">
 
-<link rel="stylesheet" href="style.css?v=2">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
@@ -31,7 +31,7 @@
             <p id="resume-text">נמצא משחק פתוח</p>
             <div class="row">
                 <button type="button" id="btn-resume" class="btn btn-primary">המשך</button>
-                <button type="button" id="btn-discard" class="btn btn-ghost">התחל חדש</button>
+                <button type="button" id="btn-discard" class="btn btn-ghost">משחק חדש</button>
             </div>
         </div>
 
@@ -51,30 +51,30 @@
         </div>
 
         <div class="field">
-            <label class="field-label">ניקוד יעד</label>
+            <label class="field-label">ניקוד פתיחה</label>
             <div class="chips" id="chips-score">
                 <button type="button" class="chip" data-score="301">301</button>
                 <button type="button" class="chip is-on" data-score="501">501</button>
                 <button type="button" class="chip" data-score="701">701</button>
             </div>
-            <input type="number" id="input-score" class="input" inputmode="numeric" min="2" max="1001" step="1" value="501" aria-label="ניקוד יעד מותאם">
+            <input type="number" id="input-score" class="input" inputmode="numeric" min="2" max="1001" step="1" value="501" aria-label="ניקוד פתיחה מותאם">
         </div>
 
         <div class="field">
-            <label class="field-label">מיטב מתוך (legs)</label>
+            <label class="field-label">אורך המשחק</label>
             <div class="chips" id="chips-bestof">
                 <button type="button" class="chip" data-bestof="1">1</button>
                 <button type="button" class="chip" data-bestof="3">3</button>
                 <button type="button" class="chip is-on" data-bestof="5">5</button>
                 <button type="button" class="chip" data-bestof="7">7</button>
             </div>
-            <input type="number" id="input-bestof" class="input" inputmode="numeric" min="1" max="21" step="1" value="5" aria-label="מיטב מתוך, מותאם">
+            <input type="number" id="input-bestof" class="input" inputmode="numeric" min="1" max="21" step="1" value="5" aria-label="אורך המשחק, מותאם">
             <p class="hint" id="legs-hint"></p>
         </div>
 
         <p class="error" id="setup-error" hidden></p>
         <button type="button" id="btn-start" class="btn btn-primary btn-block">התחל משחק</button>
-        <p class="footnote">כניסה חופשית · חובה לסיים בדאבל</p>
+        <p class="footnote">פתיחה רגילה · סיום בדאבל חובה</p>
         <!-- מוצג רק כשהדפדפן מאשר התקנה (אנדרואיד/כרום). ב-iOS האירוע לא נורה
              אף פעם, ולכן הכפתור נשאר מוסתר וההתקנה נעשית דרך שיתוף ← הוסף למסך הבית. -->
         <button type="button" id="btn-install" class="btn btn-ghost btn-block" hidden>התקן את האפליקציה</button>
@@ -95,7 +95,7 @@
 
     <div class="turnbar">
         <div class="darts" id="turn-darts"></div>
-        <div class="turn-total">סה״כ בסיבוב: <span class="ltr" id="turn-total">0</span></div>
+        <div class="turn-total">סה״כ בתור: <span class="ltr" id="turn-total">0</span></div>
     </div>
 
     <div id="board-wrap" class="board-wrap"></div>
@@ -118,7 +118,7 @@
     <div class="overlay-card">
         <h2 id="leg-title"></h2>
         <p id="leg-sub" class="overlay-sub"></p>
-        <button type="button" id="btn-next-leg" class="btn btn-primary btn-block">ליג הבא</button>
+        <button type="button" id="btn-next-leg" class="btn btn-primary btn-block">הסבב הבא</button>
         <button type="button" class="btn btn-ghost btn-block js-undo">בטל</button>
     </div>
 </div>
@@ -132,11 +132,11 @@
     </div>
 </div>
 
-<script src="board.js?v=2"></script>
-<script src="checkout.js?v=2"></script>
-<script src="engine.js?v=2"></script>
-<script src="storage.js?v=2"></script>
-<script src="app.js?v=2"></script>
-<script src="tests.js?v=2"></script>
+<script src="board.js?v=3"></script>
+<script src="checkout.js?v=3"></script>
+<script src="engine.js?v=3"></script>
+<script src="storage.js?v=3"></script>
+<script src="app.js?v=3"></script>
+<script src="tests.js?v=3"></script>
 </body>
 </html>

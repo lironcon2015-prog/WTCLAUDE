@@ -18,7 +18,14 @@ var Dartboard = (function () {
         TRIPLE_OUT: 107,
         DOUBLE_IN: 162,
         DOUBLE_OUT: 170,
-        LABEL: 185
+        /*
+         * טבעת המסגרת נושאת את המספרים, בדיוק כמו החישוק של לוח אמיתי.
+         * קודם הם ישבו ב-r=185 על רקע ריק ו-viewBox של ±200, כלומר 15%
+         * מרוחב המסך הלכו לשוליים. עכשיו אותם פיקסלים הם חלק מהאובייקט,
+         * וה-viewBox מתהדק ל-±190 — משטח המשחק גדל ב-11% בקוטר.
+         */
+        RIM_OUT: 190,
+        LABEL: 180
     };
 
     /* רצועות פגיעה מורחבות ובלתי-נראות — הטריפל והדאבל מקבלים 18 מ"מ במקום 8 */
@@ -31,7 +38,7 @@ var Dartboard = (function () {
         DOUBLE_OUT: 174
     };
 
-    var VIEWBOX = 200;
+    var VIEWBOX = R.RIM_OUT;
 
     /**
      * @param {number} r רדיוס
@@ -86,6 +93,7 @@ var Dartboard = (function () {
 
         /* ---- שכבה נראית (לא מקבלת אירועים) ---- */
         out.push('<g class="db-visual" pointer-events="none">');
+        out.push('<circle class="db-surround" cx="0" cy="0" r="' + R.RIM_OUT + '"></circle>');
         out.push('<circle class="db-rim" cx="0" cy="0" r="' + R.DOUBLE_OUT + '"></circle>');
 
         for (i = 0; i < 20; i++) {

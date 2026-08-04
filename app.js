@@ -104,17 +104,20 @@ var App = (function () {
             els.legsHint.textContent = '';
             return;
         }
-        els.legsHint.textContent = 'הראשון ל-' + (Math.floor(bestOf / 2) + 1) + ' ליגים מנצח';
+        /* במשחק של סבב יחיד אין "הטוב מ" — יש רק סבב אחד */
+        els.legsHint.textContent = bestOf === 1
+            ? 'סבב אחד מכריע'
+            : 'הראשון ל-' + (Math.floor(bestOf / 2) + 1) + ' סבבים מנצח';
     }
 
     function readSetup() {
         var score = parseInt(els.inputScore.value, 10);
         var bestOf = parseInt(els.inputBestOf.value, 10);
         if (!isFinite(score) || score < 2 || score > 1001) {
-            return { error: 'ניקוד היעד חייב להיות מספר שלם בין 2 ל-1001.' };
+            return { error: 'ניקוד הפתיחה חייב להיות מספר שלם בין 2 ל-1001.' };
         }
         if (!isFinite(bestOf) || bestOf < 1 || bestOf > 21) {
-            return { error: 'מספר ה-legs חייב להיות מספר שלם בין 1 ל-21.' };
+            return { error: 'אורך המשחק חייב להיות מספר שלם בין 1 ל-21.' };
         }
         var names = [];
         for (var i = 0; i < setup.count; i++) {
@@ -199,13 +202,13 @@ var App = (function () {
         els.resumeBanner.hidden = true;
     }
 
-    /* ---------- באנר האאוט ---------- */
+    /* ---------- באנר השריפה ---------- */
 
     function flashBust() {
         var lt = core.lastTurn;
         var labels = lt.darts.map(DartsEngine.dartLabel).join(' ');
-        els.bustBanner.innerHTML = '<strong>אאוט!</strong> ' + ltr(esc(labels)) +
-                                   ' — הניקוד חוזר ל-' + ltr(lt.revertedTo);
+        els.bustBanner.innerHTML = '<strong>נשרף!</strong> ' + ltr(esc(labels)) +
+                                   ' — חוזר ל-' + ltr(lt.revertedTo);
         els.bustBanner.hidden = false;
         if (bustTimer) { clearTimeout(bustTimer); }
         bustTimer = setTimeout(function () {
@@ -249,8 +252,8 @@ var App = (function () {
                     (core.legWinnerIndex === i ? ' is-winner' : '') + '">' +
                     '<div class="pname">' + esc(p.name) + '</div>' +
                     '<div class="premain">' + ltr(p.remaining) + '</div>' +
-                    '<div class="pmeta">נצבר ' + ltr(scored) + ' · ליגים ' + ltr(p.legsWon) + '</div>' +
-                    '<div class="plast">סיבוב אחרון: ' +
+                    '<div class="pmeta">צבר ' + ltr(scored) + ' · סבבים ' + ltr(p.legsWon) + '</div>' +
+                    '<div class="plast">תור אחרון: ' +
                         ltr(p.lastTurnPoints === null ? '—' : p.lastTurnPoints) + '</div>' +
                     checkout +
                     '</div>';
@@ -281,13 +284,13 @@ var App = (function () {
         if (core.matchOver) {
             var w = core.players[core.matchWinnerIndex];
             els.matchTitle.textContent = w.name + ' ניצח!';
-            els.matchSub.innerHTML = 'תוצאת הליגים: ' +
+            els.matchSub.innerHTML = 'תוצאת הסבבים: ' +
                 ltr(core.players.map(function (p) { return p.legsWon; }).join(':'));
             els.overlayMatch.hidden = false;
             els.overlayLeg.hidden = true;
         } else if (core.legOver) {
-            els.legTitle.textContent = core.players[core.legWinnerIndex].name + ' לקח את הליג!';
-            els.legSub.innerHTML = 'תוצאת הליגים: ' +
+            els.legTitle.textContent = core.players[core.legWinnerIndex].name + ' לקח את הסבב!';
+            els.legSub.innerHTML = 'תוצאת הסבבים: ' +
                 ltr(core.players.map(function (p) { return p.legsWon; }).join(':')) +
                 ' · ' + esc(names.join(' / '));
             els.overlayLeg.hidden = false;
@@ -300,8 +303,10 @@ var App = (function () {
 
     function render() {
         if (!core) { return; }
-        els.legInfo.innerHTML = 'ליג ' + ltr(core.legIndex + 1) + ' · מיטב מתוך ' +
-                                ltr(core.config.bestOf) + ' · יעד ' + ltr(core.config.startScore);
+        /* "הטוב מ-N" נופל כשיש רק סבב אחד, ואין צורך לתייג את 501 — הוא מובן מהקשר */
+        els.legInfo.innerHTML = 'סבב ' + ltr(core.legIndex + 1) +
+                                (core.config.bestOf > 1 ? ' · הטוב מ-' + ltr(core.config.bestOf) : '') +
+                                ' · ' + ltr(core.config.startScore);
         els.btnUndo.disabled = history.length === 0;
         renderPlayers();
         renderTurn();
@@ -316,7 +321,7 @@ var App = (function () {
             html += '<button type="button" class="key" data-value="' + n + '">' + n + '</button>';
         }
         html += '<button type="button" class="key key-wide" data-value="25" data-fixed-mult="1">25</button>';
-        html += '<button type="button" class="key key-wide" data-value="25" data-fixed-mult="2">בול 50</button>';
+        html += '<button type="button" class="key key-wide" data-value="25" data-fixed-mult="2">בול</button>';
         html += '<button type="button" class="key key-wide key-miss" data-value="0" data-fixed-mult="0">החטאה</button>';
         els.keypadGrid.innerHTML = html;
     }
@@ -436,7 +441,7 @@ var App = (function () {
         pendingResume = saved;
         var c = saved.core;
         els.resumeText.innerHTML = 'נמצא משחק פתוח: ' + esc(c.config.names.join(' / ')) +
-                                   ' · ליג ' + ltr(c.legIndex + 1) + ' · יעד ' + ltr(c.config.startScore);
+                                   ' · סבב ' + ltr(c.legIndex + 1) + ' · ' + ltr(c.config.startScore);
         els.resumeBanner.hidden = false;
     }
 
