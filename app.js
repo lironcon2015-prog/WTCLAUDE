@@ -271,7 +271,10 @@ var App = (function () {
                         '<span class="dart-label ltr">' + DartsEngine.dartLabel(d) + '</span>' +
                         '<span class="dart-pts ltr">' + d.points + '</span></div>';
             } else {
-                html += '<div class="dart is-empty"><span class="dart-label">—</span></div>';
+                /* גם המשבצת הריקה חייבת שתי שורות, אחרת הגובה קופץ כשנכנס חץ
+                   ודוחף את הלוח למטה */
+                html += '<div class="dart is-empty"><span class="dart-label">—</span>' +
+                        '<span class="dart-pts">&nbsp;</span></div>';
             }
         }
         els.turnDarts.innerHTML = html;

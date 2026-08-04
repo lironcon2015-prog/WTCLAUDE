@@ -7,26 +7,26 @@
 'use strict';
 
 /* מעלים בכל שחרור שמשנה קובץ ברשימה. אם משנים גם ?v= ב-index.html — לעדכן שם. */
-var CACHE_VERSION = 'darts-v3';
+var CACHE_VERSION = 'darts-v4';
 
 /*
  * הנתיבים יחסיים ל-sw.js עצמו: ב-GitHub Pages './' הוא /WTCLAUDE/, בשורש דומיין
  * הוא '/', ובפורק הוא נתיב הפורק. אפס נתיבים מקודדים.
  *
  * מחרוזות ה-?v= חייבות להיות זהות בדיוק לאלה שב-index.html — מחרוזת השאילתה
- * היא חלק ממפתח המטמון, ולכן precache של 'style.css' מול בקשה ל-'style.css?v=3'
+ * היא חלק ממפתח המטמון, ולכן precache של 'style.css' מול בקשה ל-'style.css?v=4'
  * הוא פספוס ודאי.
  */
 var ASSETS = [
     './',
     './index.html',
-    './style.css?v=3',
-    './board.js?v=3',
-    './checkout.js?v=3',
-    './engine.js?v=3',
-    './storage.js?v=3',
-    './app.js?v=3',
-    './tests.js?v=3',
+    './style.css?v=4',
+    './board.js?v=4',
+    './checkout.js?v=4',
+    './engine.js?v=4',
+    './storage.js?v=4',
+    './app.js?v=4',
+    './tests.js?v=4',
     './manifest.webmanifest',
     './icons/icon-192.png',
     './icons/icon-512.png',
