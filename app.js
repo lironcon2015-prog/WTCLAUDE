@@ -459,7 +459,12 @@ var App = (function () {
         offerResume();
     }
 
-    document.addEventListener('DOMContentLoaded', init);
+    /* עשוי לרוץ גם אחרי ש-DOMContentLoaded כבר נורה (למשל בגרסת קובץ יחיד) */
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 
     return {
         throwDart: throwDart,
